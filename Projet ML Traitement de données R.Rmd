@@ -1,0 +1,1217 @@
+---
+title: "Projet actuariat de l'assurance non-vie"
+author: "Archie MURCY & Arsène FETMOTA FEUTCHING & Ratiba MIKOU & Thierry MEFENZA NOUNTU"
+date: "05/02/2020"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    number_sections: true
+    
+---
+
+<style type="text/css">
+{
+  color: #BD1132; 
+}
+
+.list-group-item.active, .list-group-item.active:focus, .list-group-item.active:hover {
+    background-color: #BD1132;
+}
+
+</style>
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning=FALSE, message=FALSE)
+```
+
+
+```{r message=FALSE, warning=FALSE}
+if(!require(pacman))install.packages("pacman")
+library(pacman)
+#%install.packages("CASdatasets", repos = "http://cas.uqam.ca/pub/", type="source")
+#library(CASdatasets)
+
+p_load(ggplot2, dplyr, ggcorrplot, tidyverse,visdat, funModeling, kableExtra, scales, ggpubr, RColorBrewer, stringr, pscl, plotrix, mhurdle, AER)
+```
+
+# Importation des données
+
+```{r}
+sinistres <- read.csv("home_insurance.csv")
+```
+
+# Etude exploratoire préliminaire
+```{r}
+
+
+for ( i in (1:66)){
+  
+index_missing <-which((sinistres[,i]=="") )
+sinistres[index_missing, i] <-NA 
+
+}
+
+
+head(sinistres) %>%
+  kable() %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"))%>%
+  scroll_box(width = "100%")
+```
+
+```{r}
+sapply(sinistres, class)%>%
+  kable() %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"))%>%
+  scroll_box(width = "100%")
+```
+
+QUOTE_DATE doit etre transformé en date
+COVER_START -------||---------- en date
+P1_DOB      -------||---------- en date
+Paying_Guests -------||---------- en facter
+Prop_Type variable bizarre
+YEARSBUILt -------||---------- en année 
+CAMPAIN_DESC a supprimé
+Payement_Frequebcy verifié 
+KEYCARE_ADDON_PoST_REN à verifier tres bisare
+Keycare_Addon_Pre_Ren à verifier tres bisare
+HP1_ADDON_PRE_REN à verifier
+HP1_ADDON_POST_REN à verifier
+HP3_ADDON_PRE_REN à verifier 
+HP3_ADDON_POST_REN à verifier
+MTA_FAP en numérique 
+MTA_APRP en numérique 
+MTA_DATE	 en date 
+LAST_ANN_PREM_GROSS en numérique 
+POL_STATUS en facteur
+POLICE en Facteur
+
+```{r}
+attach(sinistres)
+sinistres$QUOTE_DATE= as.Date(QUOTE_DATE, format = "%m/%d/%Y")
+sinistres$COVER_START= as.Date(COVER_START, format = "%d/%m/%Y")
+sinistres$P1_DOB= as.Date(sinistres$P1_DOB, format = "%d/%m/%Y")
+sinistres$MTA_DATE= as.Date(MTA_DATE, format = "%d/%m/%Y")
+sinistres$YEARBUILT = as.Date(sinistres$YEARBUILT, format = "%Y")
+sinistres$MTA_FAP = as.numeric(MTA_FAP)
+sinistres$MTA_APRP = as.numeric(MTA_APRP)
+sinistres$PAYING_GUESTS = as.factor(PAYING_GUESTS)
+sinistres$POL_STATUS = as.factor(POL_STATUS)
+sinistres$Police = as.factor(Police)
+sinistres$LAST_ANN_PREM_GROSS = as.double(sinistres$LAST_ANN_PREM_GROSS)
+sinistres$CLAIM3YEARS = as.factor(CLAIM3YEARS)
+sinistres$P1_EMP_STATUS = as.factor(P1_EMP_STATUS)
+sinistres$P1_PT_EMP_STATUS = as.factor(P1_PT_EMP_STATUS)
+sinistres$BUS_USE = as.factor(BUS_USE)
+sinistres$CLERICAL = as.factor(CLERICAL)
+sinistres$AD_BUILDINGS = as.factor(AD_BUILDINGS)
+sinistres$AD_CONTENTS = as.factor(AD_CONTENTS)
+sinistres$CONTENTS_COVER = as.factor(CONTENTS_COVER)
+sinistres$BUILDINGS_COVER = as.factor(BUILDINGS_COVER)
+
+sinistres$P1_MAR_STATUS = as.factor(P1_MAR_STATUS)
+sinistres$P1_POLICY_REFUSED = as.factor(P1_POLICY_REFUSED)
+sinistres$P1_SEX = as.factor(P1_SEX)
+sinistres$APPR_ALARM = as.factor(APPR_ALARM)
+sinistres$APPR_LOCKS = as.factor(APPR_LOCKS)
+sinistres$FLOODING = as.factor(FLOODING)
+sinistres$NEIGH_WATCH = as.factor(NEIGH_WATCH)
+sinistres$OCC_STATUS = as.factor(OCC_STATUS)
+sinistres$SAFE_INSTALLED = as.factor(SAFE_INSTALLED)
+sinistres$SEC_DISC_REQ = as.factor(SEC_DISC_REQ)
+sinistres$SUBSIDENCE = as.factor(SUBSIDENCE)
+sinistres$PAYMENT_METHOD = as.factor(PAYMENT_METHOD)
+sinistres$LEGAL_ADDON_PRE_REN = as.factor(LEGAL_ADDON_PRE_REN)
+sinistres$LEGAL_ADDON_POST_REN = as.factor(LEGAL_ADDON_POST_REN)
+sinistres$HOME_EM_ADDON_PRE_REN = as.factor(HOME_EM_ADDON_PRE_REN)
+sinistres$HOME_EM_ADDON_POST_REN = as.factor(HOME_EM_ADDON_POST_REN)
+sinistres$GARDEN_ADDON_PRE_REN = as.factor(GARDEN_ADDON_PRE_REN)
+sinistres$GARDEN_ADDON_POST_REN = as.factor(GARDEN_ADDON_POST_REN)
+sinistres$KEYCARE_ADDON_PRE_REN = as.factor(KEYCARE_ADDON_PRE_REN)
+sinistres$KEYCARE_ADDON_POST_REN = as.factor(KEYCARE_ADDON_POST_REN)
+sinistres$HP1_ADDON_PRE_REN = as.factor(HP1_ADDON_PRE_REN)
+sinistres$HP1_ADDON_POST_REN = as.factor(HP1_ADDON_POST_REN)
+sinistres$HP2_ADDON_PRE_REN = as.factor(HP2_ADDON_PRE_REN)
+sinistres$HP2_ADDON_POST_REN = as.factor(HP2_ADDON_POST_REN)
+sinistres$HP3_ADDON_PRE_REN = as.factor(HP3_ADDON_PRE_REN)
+sinistres$HP3_ADDON_POST_REN = as.factor(HP3_ADDON_POST_REN)
+sinistres$MTA_FLAG = as.factor(MTA_FLAG)
+
+
+
+```
+
+
+
+```{r}
+sapply(sinistres, class)%>%
+  kable() %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"))%>%
+  scroll_box(width = "100%")
+```
+
+
+
+
+## Etude des valeurs manquantes
+
+### Identification des valeurs manquantes
+```{r }
+sinistre_status <- df_status(sinistres)
+```
+
+### Suppression de variable Inutile 
+
+```{r include=FALSE}
+sinistres$i = NULL  # car doublon avec police 
+sinistres$CAMPAIGN_DESC = NULL
+sinistres$CLERICAL = NULL
+```
+
+
+
+```{r}
+sinistre_status %>%
+arrange(p_zeros)  %>%
+filter( p_zeros>0 ) %>%
+ggplot(aes(x = variable, y = p_zeros/100, fill = '#7d011d')) +
+  geom_bar(stat="identity") +
+  theme_minimal() +
+  labs(y = NULL,
+       x= NULL, 
+    title = "Distribution des valeurs manquantes dans la base")+
+  theme(legend.position = "none")+
+  scale_y_continuous(labels = percent)+
+  coord_flip()+
+  scale_fill_brewer(palette="YlOrRd")
+
+```
+Nous remarquons que les variables MAX_DAYS_UNOCC(53.66% de 0 et 26.20% de NA), PAYING_GUESTS(73.72% de 0 et 26.20% de NA), SPEC_ITEM_PREM(64.87% de 0 et 26.20 de NA), SPEC_SUM_INSURED(64.85% de 0 et 26.20 de NA), UNSPEC_HRP_PREM(54,67% de 0 et  26.20%).
+
+
+
+Nous suprimons la variabla UNSPEC_HRP_PREM car possède 54.67% 26.20% de N et c'est une variable inconnu? LE RESTE DE variable ayant beaucoup de zero sont conservées pour le moment
+```{r}
+#sinistres$MAX_DAYS_UNOCC = NULL   
+#sinistres$PAYING_GUESTS = NULL
+#sinistres$SPEC_ITEM_PREM = NULL
+#sinistres$SPEC_SUM_INSURED = NULL
+sinistres$UNSPEC_HRP_PREM = NULL
+
+```
+
+
+### Verification apres traitement 
+```{r}
+sinistre_status=df_status(sinistres)
+sinistre_status %>%
+arrange(p_zeros)  %>%
+filter( p_zeros>0 ) %>%
+ggplot(aes(x = variable, y = p_zeros/100, fill = '#7d011d')) +
+  geom_bar(stat="identity") +
+  theme_minimal() +
+  labs(y = NULL,
+       x= NULL, 
+    title = "Distribution des zero dans la base")+
+  theme(legend.position = "none")+
+  scale_y_continuous(labels = percent)+
+  coord_flip()+
+  scale_fill_brewer(palette="YlOrRd")
+
+```
+
+
+
+```{r}
+sinistre_status%>%
+  kable() %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"))%>%
+  scroll_box(width = "100%")
+```
+Nous remarquons que les variables ont un nombre de NA de 89.62% pour MTA_DATE, 78.25% pour MTA_APRP, 78.25 pour MTA_FAP, 68.55 pour PAYEMNT_FREQUENCY, 49.43% pour QUOTE_DATE , 45% pour RISK_RATED_AREA_B, 26.20% pour COVER_START, 26,20% pour SUM_INSURED_BUILDING, 26.20% pour NCD_GRANTED_YEARS_B
+
+
+```{r}
+sinistre_status=df_status(sinistres)
+sinistre_status %>%
+arrange( p_na)  %>%
+filter( p_na>0 ) %>%
+ggplot(aes(x = variable, y = p_na/100, fill = '#7d011d')) +
+  geom_bar(stat="identity") +
+  theme_minimal() +
+  labs(y = NULL,
+       x= NULL, 
+    title = "Distribution des valeurs manquantes dans la base")+
+  theme(legend.position = "none")+
+  scale_y_continuous(labels = percent)+
+  coord_flip()+
+  scale_fill_brewer(palette="YlOrRd")
+
+```
+
+
+
+
+```{r}
+sinistres$MTA_DATE = NULL   
+sinistres$MTA_APRP = NULL
+sinistres$MTA_FAP = NULL
+sinistres$PAYMENT_FREQUENCY = NULL
+sinistres$P1_PT_EMP_STATUS = NULL
+#sinistres$UNSPEC_HRP_PREM = NULL
+
+```
+
+
+
+```{r}
+sinistre_status=df_status(sinistres)
+sinistre_status %>%
+arrange( p_na)  %>%
+filter( p_na>0 ) %>%
+ggplot(aes(x = variable, y = p_na/100, fill = '#7d011d')) +
+  geom_bar(stat="identity") +
+  theme_minimal() +
+  labs(y = NULL,
+       x= NULL, 
+    title = "Distribution des valeurs manquantes dans la base")+
+  theme(legend.position = "none")+
+  scale_y_continuous(labels = percent)+
+  coord_flip()+
+  scale_fill_brewer(palette="YlOrRd")
+
+```
+
+
+Nous remarquons que la majorité des variables qui ont des evaleur manquante on un pourcentage de valeur manquante de 26.20, une intuition serait que se sont les mêmes valeurs qui manquent partout nous allons essayer dans la suite de supprimer ces lignes pour voir si l'intuition est bonne. Aussi nous ne savons s'il faille qu'ont supprime aussi les variables QUOTE_DATE, RISK_RATED_AREA_B???
+
+
+### Nous prenons une va qui a 26.20% de Na et nous supprimons ces lignes pour voir si notre intuition était bonne 
+
+```{r}
+
+#sinistres[which((is.na(sinistres$COVER_START))==TRUE),]=NULL
+
+sinistres = subset(sinistres,(is.na(sinistres$COVER_START))!=TRUE) 
+```
+
+
+
+
+
+```{r}
+sinistre_status=df_status(sinistres)
+sinistre_status %>%
+arrange( p_na)  %>%
+filter( p_na>0 ) %>%
+ggplot(aes(x = variable, y = p_na/100, fill = '#7d011d')) +
+  geom_bar(stat="identity") +
+  theme_minimal() +
+  labs(y = NULL,
+       x= NULL, 
+    title = "Distribution des valeurs manquantes dans la base")+
+  theme(legend.position = "none")+
+  scale_y_continuous(labels = percent)+
+  coord_flip()+
+  scale_fill_brewer(palette="YlOrRd")
+
+```
+
+Nous remarquons notre intuition était bonne ils nous restent juste Quote_DATE avec 59% de NA, RISK_RATED_AREA_B avec 25% de NA, RISK_RATED_AREA_C avec 5% de NA
+
+
+Concernant la variable QUOTE_DATE nous pouvons décider de remplacer les valeurs manquantes par les valeurs de la variables Cover_Start mais vu que nous sommes a près de 60% de valeur manquantes nous allons plutôt la supprimé car si nous la remplaçons par ces valeurs lors de l'études des corrélations deux variables serons très très corrélé positivement
+
+ 
+
+
+
+
+
+
+
+
+```{r}
+
+sinistres$QUOTE_DATE = NULL
+summary(RISK_RATED_AREA_B)
+summary(RISK_RATED_AREA_C)
+
+```
+Nous remplacons les valeurs manquantes par la moyenne des valeurs de la colonne
+
+
+```{r}
+
+index_missing <-which((is.na(sinistres$RISK_RATED_AREA_B)) == TRUE )
+sinistres[index_missing, "RISK_RATED_AREA_B"] = mean(sinistres$RISK_RATED_AREA_B[-index_missing])
+
+index_missing <-which(is.na(sinistres$RISK_RATED_AREA_C) == TRUE )
+sinistres[index_missing, "RISK_RATED_AREA_C"]= mean (sinistres$RISK_RATED_AREA_C[-index_missing])
+```
+
+
+
+```{r}
+
+#sinistres$P1_DOB = as.Date(sinistres$P1_DOB, format= "%d/%m/%Y")
+#sinistres$YEARBUILT = as.Date(sinistres$YEARBUILT, format= "%Y")
+
+```
+
+
+
+
+```{r}
+sinistre_status = df_status(sinistres)
+sinistre_status%>%
+  kable() %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"))%>%
+  scroll_box(width = "100%")
+```
+
+Nous supprimons la variable PAYING_GUESTS car 99.89% de zéro, SPEC_ITEM_PREM	87.91% de zéro, SPEC_SUM_INSURED 87.87% de zéro ( aussi il est évident que si on la garde pendant l'étude des corrélation elles seront corrélées à au moins 72.71	 à MAX_DAYS_UNOCC avec le nombre de zéro en commun donc ça ne vaut pas la peine de garder les deux à ce niveau de l'étude)
+
+
+
+```{r}
+sinistres$PAYING_GUESTS = NULL   
+sinistres$SPEC_ITEM_PREM = NULL
+sinistres$SPEC_SUM_INSURED = NULL
+
+sinistre_status = df_status(sinistres)
+sinistre_status%>%
+  kable() %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"))%>%
+  scroll_box(width = "100%")
+
+
+```
+
+
+
+
+```{r}
+
+summary(sinistres)%>%
+  kable() %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"))%>%
+  scroll_box(width = "100%")
+```
+
+
+
+
+
+
+
+
+
+
+### Separation de la base en deux ( base_quanti et base_quali)
+
+
+```{r}
+
+list_quali <- as.vector(which(sapply(sinistres, class) == 'factor'))
+base_quali<- sinistres[,list_quali]
+name_var_quali <- colnames(base_quali)
+
+#base_quali <- base_quali[, -c(1, 2, 3, 4, 6, 11, 31)]
+#base_quali <- subset(base_quali,select=-c(id_policy, id_year,id_client,id_vehicle, pol_insee_code))
+
+base_quanti <- sinistres[,-list_quali]
+
+base_quanti$COVER_START = NULL
+base_quanti$P1_DOB = NULL
+base_quanti$YEARBUILT = NULL
+base_quali$COVER_START = sinistres$COVER_START
+base_quali$P1_DOB= sinistres$P1_DOB
+base_quali$YEARBUILT = sinistres$YEARBUILT
+base_quali$Police = NULL
+
+
+
+```
+
+
+
+
+
+## Etude des corrélations
+
+*Corrélations entre variables qualitatives* 
+
+
+```{r echo=FALSE, warning=FALSE}
+#base_quali = sinistres
+
+
+n_quali <- ncol(base_quali)
+n <-  nrow(base_quali)
+
+# Fonction de calcul du coefficient V de Cramer
+cramer = function (df , i, j) {
+s = chisq.test (df[, which ( name ==i)],
+df[, which ( name ==j )])$statistic
+sqrt ( s /
+(n*( min( nrow ( table (df[,i], df[,j])) -1,
+ncol ( table (df[,i], df[,j])) -1 ))))
+}
+
+
+# Matrice des coefficients V de Cramer
+matV = matrix (0, n_quali, n_quali)
+name = colnames (base_quali )[1:n_quali]
+for(i in name ) {
+for(j in name ) {
+matV [ which ( name ==i), which ( name ==j)] = cramer (base_quali , i, j)
+}
+}
+colnames(matV) <-  colnames(base_quali)
+rownames(matV) <-  colnames(base_quali)
+
+
+ggcorrplot(matV,
+           hc.order = TRUE,
+           type = "lower",
+           outline.color = "white",
+           colors = c("#6D9EC1", "white", "#DB0A29"),
+           lab = TRUE,
+           show.diag = TRUE,
+           insig = "blank") #les cases des corrélations non significatives ne sont pas corrélées
+```
+
+
+
+
+
+```{r}
+
+n <- nrow(matV)
+corr_matrix <- data.frame(var1 = character(),  
+                   var2 = character(),
+                    corr = numeric())
+for (i in 1:(n-1)){
+  for (j in (i+1):n){
+    new_line <- data.frame(var1 = colnames(matV)[i],  
+                   var2 = colnames(matV)[j],
+                    corr = matV[i,j])
+    corr_matrix <-  rbind(corr_matrix, new_line)
+  }
+}
+
+
+```
+
+Nous remarquons que nous avons 7 corrélations suppérieure 0.7
+nous supprimons les variables CONTENTS_COVER, BUILDINGS_COVER, GARDEN_ADDON_POST_REN, LEGAL_ADDON_POST_REN, APPR_LOCKS, KEYCARE_ADDON_POST_REN, HP2_ADDON_POST_REN 
+
+
+
+```{r}
+
+sinistres$CONTENTS_COVER= NULL
+sinistres$BUILDINGS_COVER= NULL
+sinistres$GARDEN_ADDON_POST_REN= NULL
+sinistres$LEGAL_ADDON_POST_REN= NULL
+sinistres$APPR_LOCKS= NULL
+sinistres$KEYCARE_ADDON_POST_REN= NULL
+sinistres$HP2_ADDON_POST_REN = NULL
+sinistres$Police= NULL
+
+
+base_quali$CONTENTS_COVER= NULL
+base_quali$BUILDINGS_COVER= NULL
+base_quali$GARDEN_ADDON_POST_REN= NULL
+base_quali$LEGAL_ADDON_POST_REN= NULL
+base_quali$APPR_LOCKS= NULL
+base_quali$KEYCARE_ADDON_POST_REN= NULL
+base_quali$HP2_ADDON_POST_REN = NULL
+base_quali$Police= NULL
+
+```
+
+
+*Corrélations entre les varibles quantitatives*
+
+```{r echo=FALSE, out.width='100%'}
+M <- cor(base_quanti)
+p.mat <- cor_pmat(base_quanti)
+ggcorrplot(M,
+           hc.order = TRUE,
+           type = "lower",
+           outline.color = "white",
+           colors = c("#6D9EC1", "white", "#DB0A29"),
+           lab = TRUE,
+           show.diag = TRUE,
+           insig = "blank") #les cases des corrélations non significatives ne sont pas corrélées
+```
+Ayant beaucoup de variables quantitatives nous fixons notre seuil à 60% et nous supprimons toute les variables qui ont des corélation supérieure à 60. ici nous supprimons  NCD_GRANTED_YEARS_C qui  est corrélé à 67% de avec SUM_INSURED_CONTENTS et nous supprimons aussi NCD_GRANTED_YEARS_B corrélé à 87% avec SUM_INSURED_BUILDINGS
+
+### suppression des va quant
+```{r}
+
+
+sinistres$NCD_GRANTED_YEARS_B = NULL
+sinistres$NCD_GRANTED_YEARS_C = NULL
+sinistres$P1_SEX = NULL
+
+
+base_quanti$NCD_GRANTED_YEARS_B = NULL
+base_quanti$NCD_GRANTED_YEARS_C = NULL
+base_quali$P1_SEX = NULL
+
+```
+
+```{r}
+
+
+base_quanti_status = df_status(base_quanti)
+base_quanti_status%>%
+  kable() %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"))%>%
+  scroll_box(width = "100%")
+
+
+```
+
+```{r}
+
+summary(base_quanti)%>%
+  kable() %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"))%>%
+  scroll_box(width = "100%")
+```
+
+
+
+
+# Frequance de POL_STATUS
+
+
+### Répartition de la fréquence des sinistres 
+```{r echo=FALSE, out.width="50%", fig.align="center"}
+freq <- data.frame(table(sinistres$POL_STATUS))
+colnames(freq) <- c('claim_nb' , 'freq_')
+
+freq %>%
+ggplot(aes(x = claim_nb, y = freq_ /sum(freq$freq_), fill = '#7d011d')) +
+  geom_bar(stat="identity") +
+  theme_minimal() +
+  labs(y = NULL,
+       x= NULL, 
+    title = "Répartition de la frequence du statut du contrat")+
+  theme(legend.position = "none")+
+  scale_y_continuous(labels = percent)+
+  #coord_flip()+
+  scale_fill_brewer(palette="YlOrRd")
+
+```
+On voit que près de 70 \% de contrats de type live (non résiliés), donc il faudrait dans notre modélisation gerer la proportion des lives dans notre modèle pour avoir de bonne proportions 
+
+
+```{r echo=FALSE, out.width="50%", fig.align="center"}
+count(sinistres, POL_STATUS, sort = TRUE) %>%
+kable() %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"))%>%
+  scroll_box(width = "100%")
+
+
+```
+la variable Unknown ne represente que 16/189021 donc elle est négligeable nous allons la supprimer d'autant plus que nous ne savons pas ce quel represente.
+
+
+
+```{r}
+
+#sinistres[which((is.na(sinistres$COVER_START))==TRUE),]=NULL
+
+#sinis = subset(sinistres, which(sinistres$POL_STATUS) = Unknown) 
+
+
+library(forcats)
+
+sinistres = sinistres[!sinistres$POL_STATUS == "Unknown",]
+
+sinistres$POL_STATUS = fct_recode( sinistres$POL_STATUS,
+                             "1"="Cancelled" ,
+                             "1"="Lapsed" ,
+                             "0"="Live",
+                             #"1"="Unknown"
+                             )
+
+
+
+
+```
+
+Nous avons changé les variables 
+
+### Répartition de la fréquence des sinistres 
+```{r echo=FALSE, out.width="50%", fig.align="center"}
+freq <- data.frame(table(sinistres$POL_STATUS))
+colnames(freq) <- c('claim_nb' , 'freq_')
+
+freq %>%
+ggplot(aes(x = claim_nb, y = freq_ /sum(freq$freq_), fill = '#7d011d')) +
+  geom_bar(stat="identity") +
+  theme_minimal() +
+  labs(y = NULL,
+       x= NULL, 
+    title = "Répartition de la frequence du statut du contrat")+
+  theme(legend.position = "none")+
+  scale_y_continuous(labels = percent)+
+  #coord_flip()+
+  scale_fill_brewer(palette="YlOrRd")
+
+```
+
+
+
+
+
+
+## Calcule de l'age de la personne à la date de souscription du contrat
+```{r}
+
+base_quanti$AGE<- trunc(as.numeric((base_quali$COVER_START-base_quali$P1_DOB)/365.25))
+sinistres$AGE<- trunc(as.numeric((sinistres$COVER_START-sinistres$P1_DOB)/365.25))
+
+sinistres$MOIS_SOUSC=as.factor(format(sinistres$P1_DOB, "%m"))
+
+```
+
+
+
+
+
+
+
+```{r echo=FALSE, warning=FALSE}
+p1 <- ggplot(sinistres) +
+    geom_bar(aes(x = P1_EMP_STATUS, fill = as.factor(POL_STATUS))) +
+    theme_minimal() +
+  labs(y = "effectif",
+    x = "profession",
+    title = "Repartition du nombre de contrat par statut en fonction de la profession ",
+    subtitle = " Avant Segmentation",
+    fill = 'Statut du contrat')+
+  
+  #geom_text(aes(label=..count..),stat="count",position=position_stack(0.5)) +
+  theme(
+      plot.title = element_text(size=12)
+    )+
+  scale_fill_brewer(palette="YlOrRd")
+
+
+p2 <- ggplot(sinistres) +
+  aes(x = P1_EMP_STATUS, fill = as.factor(POL_STATUS)) +
+  geom_bar(position = "fill") +
+  theme_minimal() +
+  labs(y = "Proportion",
+    x = "profession",
+    title = " ",
+    # Frequence de resiliation par catégorie socio-professionnelle
+    subtitle = " ",
+    fill = 'Nombre de sinistres')+
+  
+  theme(
+      plot.title = element_text(size=12)
+    )+
+  scale_y_continuous(labels = percent)+
+  scale_fill_brewer(palette="YlOrRd")
+
+
+###################
+p3 <- ggplot(sinistres) +
+    geom_bar(aes(x = BEDROOMS, fill = as.factor(POL_STATUS))) +
+    theme_minimal() +
+  labs(y = "Effectif",
+    x = "nombre de chambres",
+    title = "Repartition du nombre de contrat par statut en fonction du nombre de chambres ",
+    subtitle = "Avant segmentation",
+    fill = 'Status du contrat')+
+  
+  #geom_text(aes(label=..count..),stat="count",position=position_stack(0.5)) +
+  theme(
+      plot.title = element_text(size=12)
+    )+
+  scale_fill_brewer(palette="YlOrRd")
+
+
+p4 <- ggplot(sinistres) +
+  aes(x = BEDROOMS, fill = as.factor(POL_STATUS)) +
+  geom_bar(position = "fill") +
+  theme_minimal() +
+  labs(y = "Proportion",
+    x = "nombre de chambres",
+    title = " ",
+    #Frequence de resiliation en fonction du nombre de chambres
+    subtitle = " ",
+    fill = 'Status du contrat')+
+  
+  theme(
+      plot.title = element_text(size=12)
+    )+
+  scale_y_continuous(labels = percent)+
+  scale_fill_brewer(palette="YlOrRd")
+
+ggarrange(p1, p2, p3, p4,
+          ncol = 2, nrow = 2,
+          common.legend = TRUE,
+          legend="bottom")
+```
+
+
+On voit que la plupart des contrats sont souscrits par des retraités, ensuite vient les personnes ayant un emploi (graf 1)
+On voit que les retraités et les personnes ayant un emploi ont plus tendance à ne pas résilier leur contrat   (graf 2)
+
+
+
+
+
+
+La plupart des contrat sont souscripts par des hommes, par des maisons ayant trois chambres, par des personnes mariés ou pacsés, dans des zones où le risque d'inondation est forte etc. Regardons à présent les fréquences de résiliation pour chaque variable
+
+Les couples mariés ont plus tendance à résilier que les pacsés, etc.
+
+
+
+
+
+
+```{r echo=FALSE, warning=FALSE}
+p1 <- ggplot(sinistres) +
+    geom_bar(aes(x = OWNERSHIP_TYPE, fill = as.factor(POL_STATUS))) +
+    theme_minimal() +
+  labs(y = "effectif",
+    x = "Propriété ",
+    title = "Repartition du nombre de contrats en fonction du nombre de biens ",
+    subtitle = " Avant Segmentation",
+    fill = 'Statut du contrat')+
+  
+  #geom_text(aes(label=..count..),stat="count",position=position_stack(0.5)) +
+  theme(
+      plot.title = element_text(size=12)
+    )+
+  scale_fill_brewer(palette="YlOrRd")
+
+
+p2 <- ggplot(sinistres) +
+  aes(x = OWNERSHIP_TYPE, fill = as.factor(POL_STATUS)) +
+  geom_bar(position = "fill") +
+  theme_minimal() +
+  labs(y = "Proportion",
+    x = "Propriété",
+    title = " ",
+    # Frequence de resiliation par catégorie socio-professionnelle
+    subtitle = " ",
+    fill = 'Nombre de sinistres')+
+  
+  theme(
+      plot.title = element_text(size=12)
+    )+
+  scale_y_continuous(labels = percent)+
+  scale_fill_brewer(palette="YlOrRd")
+
+
+###################
+p3 <- ggplot(sinistres) +
+    geom_bar(aes(x = SUM_INSURED_BUILDINGS, fill = as.factor(POL_STATUS))) +
+    theme_minimal() +
+  labs(y = "Effectif",
+    x = "montant assuré",
+    title = "Repartition du nombre de contrats en fonction du montant assuré ",
+    subtitle = "Avant segmentation",
+    fill = 'Status du contrat')+
+  
+  #geom_text(aes(label=..count..),stat="count",position=position_stack(0.5)) +
+  theme(
+      plot.title = element_text(size=12)
+    )+
+  scale_fill_brewer(palette="YlOrRd")
+
+
+p4 <- ggplot(sinistres) +
+  aes(x = SUM_INSURED_BUILDINGS, fill = as.factor(POL_STATUS)) +
+  geom_bar(position = "fill") +
+  theme_minimal() +
+  labs(y = "Proportion",
+    x = "montant assuré",
+    title = " ",
+    #Frequence de resiliation en fonction du nombre de chambres
+    subtitle = " ",
+    fill = 'Status du contrat')+
+  
+  theme(
+      plot.title = element_text(size=12)
+    )+
+  scale_y_continuous(labels = percent)+
+  scale_fill_brewer(palette="YlOrRd")
+
+ggarrange(p1, p2, p3, p4,
+          ncol = 2, nrow = 2,
+          common.legend = TRUE,
+          legend="bottom")
+```
+
+
+```{r echo=FALSE, warning=FALSE}
+p1 <- ggplot(sinistres) +
+    geom_bar(aes(x = P1_MAR_STATUS, fill = as.factor(POL_STATUS))) +
+    theme_minimal() +
+  labs(y = "effectif",
+    x = "Statut marital ",
+    title = "Repartition du nombre de contrats par statut en fonction du statut marital ",
+    subtitle = " Avant Segmentation",
+    fill = 'Statut du contrat')+
+  
+  #geom_text(aes(label=..count..),stat="count",position=position_stack(0.5)) +
+  theme(
+      plot.title = element_text(size=12)
+    )+
+  scale_fill_brewer(palette="YlOrRd")
+
+
+p2 <- ggplot(sinistres) +
+  aes(x = P1_MAR_STATUS, fill = as.factor(POL_STATUS)) +
+  geom_bar(position = "fill") +
+  theme_minimal() +
+  labs(y = "Proportion",
+    x = "Statut marital",
+    title = " ",
+    # Frequence de resiliation par catégorie socio-professionnelle
+    subtitle = " ",
+    fill = 'Nombre de sinistres')+
+  
+  theme(
+      plot.title = element_text(size=12)
+    )+
+  scale_y_continuous(labels = percent)+
+  scale_fill_brewer(palette="YlOrRd")
+
+
+###################
+p3 <- ggplot(sinistres) +
+    geom_bar(aes(x = FLOODING, fill = as.factor(POL_STATUS))) +
+    theme_minimal() +
+  labs(y = "Effectif",
+    x = "Risque d'inondaion",
+    title = "Repartition du nombre de contrats par statut en fonction du montant assuré ",
+    subtitle = "Avant segmentation",
+    fill = 'Status du contrat')+
+  
+  #geom_text(aes(label=..count..),stat="count",position=position_stack(0.5)) +
+  theme(
+      plot.title = element_text(size=12)
+    )+
+  scale_fill_brewer(palette="YlOrRd")
+
+
+p4 <- ggplot(sinistres) +
+  aes(x = FLOODING, fill = as.factor(POL_STATUS)) +
+  geom_bar(position = "fill") +
+  theme_minimal() +
+  labs(y = "Proportion",
+    x = "Risque d'inondaion",
+    title = " ",
+    #Frequence de resiliation en fonction du nombre de chambres
+    subtitle = " ",
+    fill = 'Status du contrat')+
+  
+  theme(
+      plot.title = element_text(size=12)
+    )+
+  scale_y_continuous(labels = percent)+
+  scale_fill_brewer(palette="YlOrRd")
+
+ggarrange(p1, p2, p3, p4,
+          ncol = 2, nrow = 2,
+          common.legend = TRUE,
+          legend="bottom")
+```
+
+
+La plupart des contrat sont souscripts par des hommes, par des maisons ayant trois chambres, par des personnes mariés ou pacsés, dans des zones où le risque d'inondation est forte etc. Regardons à présent les fréquences de résiliation pour chaque variable
+
+
+ Les couples mariés ont plus tendance à résilier que les pacsés, etc.
+ 
+ regarder la repartition du statut de resiliation par rappport à l'age du souscripteur au debut du contrat (..........)
+ regarder par rapport au moi de souscription
+ regarder par rapport a l'utilisation de l'appartement
+ # regarde ca aussi list_features1= ['QD_month', 'cl_age','OCC_STATUS']
+ 
+ # commentaire pour ces partie la 
+ Les mois les plus sollicités pour souscrire un contrat sont respectivement Janvier, Novembre, Décembre, Février et Octobre (le mois de Janvier étant de loin le plus sollicité). Les personnes qui souscrivent le plus sont âgées respectivement entre 60-69 ans, 70-79 ans, 50-59 ans et 80-89 ans. La quasi-totalité des maisons assurées sont PH (pleinement habitées?.
+ 
+ # regarder les résiliation en fonction des années de construction (YEARBUILD)
+
+```{r}
+
+p1 <- ggplot(sinistres) +
+    geom_bar(aes(x = MAX_DAYS_UNOCC, fill = as.factor(POL_STATUS))) +
+    theme_minimal() +
+  labs(y = "effectif",
+    x = "Nombre de jours inoccupés ",
+    title = "Repartition du nombre de contrats par statut en fonction du Nombre de jours inoccupés ",
+    subtitle = " Avant Segmentation",
+    fill = 'Statut du contrat')+
+  
+  #geom_text(aes(label=..count..),stat="count",position=position_stack(0.5)) +
+  theme(
+      plot.title = element_text(size=12)
+    )+
+  scale_fill_brewer(palette="YlOrRd")
+
+
+p2 <- ggplot(sinistres) +
+  aes(x = MAX_DAYS_UNOCC, fill = as.factor(POL_STATUS)) +
+  geom_bar(position = "fill") +
+  theme_minimal() +
+  labs(y = "proportion",
+    x = "Nombre de jours inoccupés",
+    title = " ",
+    # Frequence de resiliation par catégorie socio-professionnelle
+    subtitle = " ",
+    fill = 'Nombre de sinistres')+
+  
+  theme(
+      plot.title = element_text(size=12)
+    )+
+  scale_y_continuous(labels = percent)+
+  scale_fill_brewer(palette="YlOrRd")
+
+
+###################
+p3 <- ggplot(sinistres) +
+    geom_bar(aes(x = LAST_ANN_PREM_GROSS, fill = as.factor(POL_STATUS))) +
+    theme_minimal() +
+  labs(y = "effectif",
+    x = "Prime N-1",
+    title = "Repartition du nombre de contrats par statut en fonction de la Prime N-1 ",
+    subtitle = "Avant segmentation",
+    fill = 'Status du contrat')+
+  
+  #geom_text(aes(label=..count..),stat="count",position=position_stack(0.5)) +
+  theme(
+      plot.title = element_text(size=12)
+    )+
+  scale_fill_brewer(palette="YlOrRd")
+
+
+p4 <- ggplot(sinistres) +
+  aes(x = LAST_ANN_PREM_GROSS, fill = as.factor(POL_STATUS)) +
+  geom_bar(position = "fill") +
+  theme_minimal() +
+  labs(y = "proportion",
+    x = "Prime N-1",
+    title = " ",
+    #Frequence de resiliation en fonction du nombre de chambres
+    subtitle = " ",
+    fill = 'Status du contrat')+
+  
+  theme(
+      plot.title = element_text(size=12)
+    )+
+  scale_y_continuous(labels = percent)+
+  scale_fill_brewer(palette="YlOrRd")
+
+ggarrange(p1, p2, p3, p4,
+          ncol = 2, nrow = 2,
+          common.legend = TRUE,
+          legend="bottom")
+
+
+
+```
+
+à voir (Retraité la variable LAST$ANN_PREM_GROSS)
+
+```{r}
+
+p1 <- ggplot(sinistres) +
+    geom_bar(aes(x = AGE, fill = as.factor(POL_STATUS))) +
+    theme_minimal() +
+  labs(y = "effectif",
+    x = "Age à la signature du contrat ",
+    title = "Repartition du nombre de contrats par statut en fonction de  l'âge de l'assuré ",
+    subtitle = " Avant Segmentation",
+    fill = 'Statut du contrat')+
+  
+  #geom_text(aes(label=..count..),stat="count",position=position_stack(0.5)) +
+  theme(
+      plot.title = element_text(size=12)
+    )+
+  scale_fill_brewer(palette="YlOrRd")
+
+
+p2 <- ggplot(sinistres) +
+  aes(x = AGE, fill = as.factor(POL_STATUS)) +
+  geom_bar(position = "fill") +
+  theme_minimal() +
+  labs(y = "proportion",
+    x = "Age à la signature du contrat",
+    title = " ",
+    # Frequence de resiliation par catégorie socio-professionnelle
+    subtitle = " ",
+    fill = 'Nombre de sinistres')+
+  
+  theme(
+      plot.title = element_text(size=12)
+    )+
+  scale_y_continuous(labels = percent)+
+  scale_fill_brewer(palette="YlOrRd")
+
+
+###################
+p3 <- ggplot(sinistres) +
+    geom_bar(aes(x = MOIS_SOUSC, fill = as.factor(POL_STATUS))) +
+    theme_minimal() +
+  labs(y = "effectif",
+    x = "mois de debut du contrat",
+    title = "Repartition du nombre de contrats par statut en fonction du mois de debut du contrat",
+    subtitle = "Avant segmentation",
+    fill = 'Status du contrat')+
+  
+  #geom_text(aes(label=..count..),stat="count",position=position_stack(0.5)) +
+  theme(
+      plot.title = element_text(size=12)
+    )+
+  scale_fill_brewer(palette="YlOrRd")
+
+
+p4 <- ggplot(sinistres) +
+  aes(x = MOIS_SOUSC, fill = as.factor(POL_STATUS)) +
+  geom_bar(position = "fill") +
+  theme_minimal() +
+  labs(y = "proportion",
+    x = "mois de debut du contrat",
+    title = " ",
+    #Frequence de resiliation en fonction du nombre de chambres
+    subtitle = " ",
+    fill = 'Status du contrat')+
+  
+  theme(
+      plot.title = element_text(size=12)
+    )+
+  scale_y_continuous(labels = percent)+
+  scale_fill_brewer(palette="YlOrRd")
+
+ggarrange(p1, p2, p3, p4,
+          ncol = 2, nrow = 2,
+          common.legend = TRUE,
+          legend="bottom")
+
+
+
+
+
+
+
+```
+
+Nous remarquons que la mojorité des personnes de notre portefeuille on un age compris entre 50 et 80 an, le taux de résiliation est supérieur à 70% pour les individu de 18 ans et pour le reste de notre portefeuille c'est compris entre 25 et 40% selon les ages 
+
+Plus de 90% de nos assuré non pas d'alarme dans leur logement et le taux de resiliation et le même (30%) qu'il y'ait une alarme ou pas dans l'appartement 
+
+
+
+
+```{r}
+
+p1 <- ggplot(sinistres) +
+    geom_bar(aes(x = MOIS_SOUSC, fill = as.factor(POL_STATUS))) +
+    theme_minimal() +
+  labs(y = "effectif",
+    x = "mois de souscription ",
+    title = "Repartition du nombre de contrats par statut en fonction du mois de souscription ",
+    subtitle = " Avant Segmentation",
+    fill = 'Statut du contrat')+
+  
+  #geom_text(aes(label=..count..),stat="count",position=position_stack(0.5)) +
+  theme(
+      plot.title = element_text(size=12)
+    )+
+  scale_fill_brewer(palette="YlOrRd")
+
+
+p2 <- ggplot(sinistres) +
+  aes(x = MOIS_SOUSC, fill = as.factor(POL_STATUS)) +
+  geom_bar(position = "fill") +
+  theme_minimal() +
+  labs(y = "proportion",
+    x = "mois de souscription",
+    title = " ",
+    # Frequence de resiliation par catégorie socio-professionnelle
+    subtitle = " ",
+    fill = 'Nombre de sinistres')+
+  
+  theme(
+      plot.title = element_text(size=12)
+    )+
+  scale_y_continuous(labels = percent)+
+  scale_fill_brewer(palette="YlOrRd")
+
+
+###################
+p3 <- ggplot(sinistres) +
+    geom_bar(aes(x = OCC_STATUS, fill = as.factor(POL_STATUS))) +
+    theme_minimal() +
+  labs(y = "effectif",
+    x = "Occupation de l'appart",
+    title = "Repartition du nombre de contrats par statut en fonction de l'occupation de l'appartement ",
+    subtitle = "Avant segmentation",
+    fill = 'Status du contrat')+
+  
+  #geom_text(aes(label=..count..),stat="count",position=position_stack(0.5)) +
+  theme(
+      plot.title = element_text(size=12)
+    )+
+  scale_fill_brewer(palette="YlOrRd")
+
+
+p4 <- ggplot(sinistres) +
+  aes(x = OCC_STATUS, fill = as.factor(POL_STATUS)) +
+  geom_bar(position = "fill") +
+  theme_minimal() +
+  labs(y = "proportion",
+    x = "Occupation de l'appart",
+    title = " ",
+    #Frequence de resiliation en fonction du nombre de chambres
+    subtitle = " ",
+    fill = 'Status du contrat')+
+  
+  theme(
+      plot.title = element_text(size=12)
+    )+
+  scale_y_continuous(labels = percent)+
+  scale_fill_brewer(palette="YlOrRd")
+
+ggarrange(p1, p2, p3, p4,
+          ncol = 2, nrow = 2,
+          common.legend = TRUE,
+          legend="bottom")
+
+
+
+
+```
+
+
+Les mois les plus sollicités pour souscrire un contrat sont respectivement Janvier, Novembre, Décembre, Février et Octobre (le mois de Janvier étant de loin le plus sollicité). Les personnes qui souscrivent le plus sont âgées respectivement entre 60-69 ans, 70-79 ans, 50-59 ans et 80-89 ans. La quasi-totalité des maisons assurées sont PH (pleinement habitées?.
+
+
+### Traitement des valeur abérantes 
+
+
+```{r}
+
+summary(base_quanti)%>%
+  kable() %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"))%>%
+  scroll_box(width = "100%")
+```
+
